@@ -10,10 +10,7 @@ export const FormExtension = {
 
     formContainer.innerHTML = `
           <style>
-            label {
-              font-size: 0.8em;
-              color: #888;
-            }
+            label { font-size: 0.8em; color: #888; }
             input[type="text"], input[type="email"], input[type="tel"] {
               width: 100%;
               border: none;
@@ -22,12 +19,8 @@ export const FormExtension = {
               margin: 5px 0;
               outline: none;
             }
-            .phone {
-              width: 150px;
-            }
-            .invalid {
-              border-color: red;
-            }
+            .phone { width: 150px; }
+            .invalid { border-color: red; }
             .submit {
               background: linear-gradient(to right, #2e6ee1, #2e7ff1 );
               border: none;
@@ -43,7 +36,7 @@ export const FormExtension = {
           <input type="text" class="name" name="name" required><br><br>
 
           <label for="email">Email</label>
-          <input type="email" class="email" name="email" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Invalid email address"><br><br>
+          <input type="email" class="email" name="email" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" title="Invalid email address"><br><br>
 
           <label for="phone">Phone Number</label>
           <input type="tel" class="phone" name="phone" required pattern="\\d+" title="Invalid phone number, please enter only numbers"><br><br>
@@ -58,11 +51,7 @@ export const FormExtension = {
       const email = formContainer.querySelector('.email')
       const phone = formContainer.querySelector('.phone')
 
-      if (
-        !name.checkValidity() ||
-        !email.checkValidity() ||
-        !phone.checkValidity()
-      ) {
+      if (!name.checkValidity() || !email.checkValidity() || !phone.checkValidity()) {
         name.classList.add('invalid')
         email.classList.add('invalid')
         phone.classList.add('invalid')
@@ -84,8 +73,7 @@ export const FormExtension = {
 export const MapExtension = {
   name: 'Maps',
   type: 'response',
-  match: ({ trace }) =>
-    trace.type === 'ext_map' || trace.payload.name === 'ext_map',
+  match: ({ trace }) => trace.type === 'ext_map' || trace.payload.name === 'ext_map',
   render: ({ trace, element }) => {
     const GoogleMap = document.createElement('iframe')
     const { apiKey, origin, destination, zoom, height, width } = trace.payload
@@ -113,12 +101,8 @@ export const VideoExtension = {
     videoElement.width = 240
     videoElement.src = videoURL
 
-    if (autoplay) {
-      videoElement.setAttribute('autoplay', '')
-    }
-    if (controls) {
-      videoElement.setAttribute('controls', '')
-    }
+    if (autoplay) videoElement.setAttribute('autoplay', '')
+    if (controls) videoElement.setAttribute('controls', '')
 
     videoElement.addEventListener('ended', function () {
       window.voiceflow.chat.interact({ type: 'complete' })
@@ -133,7 +117,10 @@ export const TimerExtension = {
   match: ({ trace }) =>
     trace.type === 'ext_timer' || trace.payload.name === 'ext_timer',
   render: ({ trace, element }) => {
-    const { duration } = trace.payload || 5
+    const duration = (trace.payload && typeof trace.payload.duration === 'number')
+      ? trace.payload.duration
+      : 5
+
     let timeLeft = duration
 
     const timerContainer = document.createElement('div')
@@ -160,6 +147,7 @@ export const FileUploadExtension = {
     trace.type === 'ext_fileUpload' || trace.payload.name === 'ext_fileUpload',
   render: ({ trace, element }) => {
     const fileUploadContainer = document.createElement('div')
+
     fileUploadContainer.innerHTML = `
       <style>
         .my-file-upload {
@@ -181,42 +169,45 @@ export const FileUploadExtension = {
     })
 
     fileInput.addEventListener('change', function () {
-      const file = fileInput.files[0]
+      const file = fileInput.files?.[0]
+      if (!file) return
+
       console.log('File selected:', file)
 
       fileUploadContainer.innerHTML = `<img src="https://s3.amazonaws.com/com.voiceflow.studio/share/upload/upload.gif" alt="Upload" width="50" height="50">`
 
-      var data = new FormData()
+      const data = new FormData()
       data.append('file', file)
 
-      fetch('https://tmpfiles.org/api/v1/upload', {
-        method: 'POST',
-        body: data,
-      })
-        .then((response) => {
-          if (response.ok) {
-            return response.json()
-          } else {
-            throw new Error('Upload failed: ' + response.statusText)
-          }
+      fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: data })
+        .then(async (response) => {
+          const text = await response.text()
+          console.log('Upload status:', response.status, 'response:', text)
+
+          if (!response.ok) throw new Error(`Upload failed ${response.status}: ${text}`)
+
+          let json
+          try { json = JSON.parse(text) } catch { throw new Error('Invalid JSON: ' + text) }
+          return json
         })
         .then((result) => {
           fileUploadContainer.innerHTML =
             '<img src="https://s3.amazonaws.com/com.voiceflow.studio/share/check/check.gif" alt="Done" width="50" height="50">'
-          console.log('File uploaded:', result.data.url)
+
+          const rawUrl = result?.data?.url
+          if (!rawUrl) throw new Error('Missing result.data.url')
+
+          const dlUrl = rawUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
+          console.log('File uploaded:', dlUrl)
+
           window.voiceflow.chat.interact({
             type: 'complete',
-            payload: {
-              file: result.data.url.replace(
-                'https://tmpfiles.org/',
-                'https://tmpfiles.org/dl/'
-              ),
-            },
+            payload: { file: dlUrl },
           })
         })
         .catch((error) => {
-          console.error(error)
-          fileUploadContainer.innerHTML = '<div>Error during upload</div>'
+          console.error('UPLOAD ERROR:', error)
+          fileUploadContainer.innerHTML = `<div>Error during upload<br><small>${error.message}</small></div>`
         })
     })
 
@@ -251,15 +242,15 @@ export const KBUploadExtension = {
     `
 
       const fileInput = kbfileUploadContainer.querySelector('input[type=file]')
-      const fileUploadBox =
-        kbfileUploadContainer.querySelector('.my-file-upload')
+      const fileUploadBox = kbfileUploadContainer.querySelector('.my-file-upload')
 
       fileUploadBox.addEventListener('click', function () {
         fileInput.click()
       })
 
       fileInput.addEventListener('change', function () {
-        const file = fileInput.files[0]
+        const file = fileInput.files?.[0]
+        if (!file) return
 
         kbfileUploadContainer.innerHTML = `<img src="https://s3.amazonaws.com/com.voiceflow.studio/share/upload/upload.gif" alt="Upload" width="50" height="50">`
 
@@ -277,32 +268,29 @@ export const KBUploadExtension = {
             body: formData,
           }
         )
-          .then((response) => {
-            if (response.ok) {
-              return response.json()
-            } else {
-              throw new Error('Upload failed: ' + response.statusText)
-              window.voiceflow.chat.interact({
-                type: 'error',
-                payload: {
-                  id: 0,
-                },
-              })
-            }
+          .then(async (response) => {
+            const text = await response.text()
+            console.log('KB Upload status:', response.status, 'response:', text)
+
+            if (!response.ok) throw new Error(`KB Upload failed ${response.status}: ${text}`)
+
+            let json
+            try { json = JSON.parse(text) } catch { throw new Error('Invalid JSON: ' + text) }
+            return json
           })
           .then((result) => {
             kbfileUploadContainer.innerHTML =
               '<img src="https://s3.amazonaws.com/com.voiceflow.studio/share/check/check.gif" alt="Done" width="50" height="50">'
+
             window.voiceflow.chat.interact({
               type: 'complete',
-              payload: {
-                id: result.data.documentID || 0,
-              },
+              payload: { id: result?.data?.documentID || 0 },
             })
           })
           .catch((error) => {
-            console.error(error)
-            kbfileUploadContainer.innerHTML = '<div>Error during upload</div>'
+            console.error('KB UPLOAD ERROR:', error)
+            kbfileUploadContainer.innerHTML = `<div>Error during upload<br><small>${error.message}</small></div>`
+            window.voiceflow.chat.interact({ type: 'error', payload: { id: 0 } })
           })
       })
       element.appendChild(kbfileUploadContainer)
@@ -318,23 +306,18 @@ export const DateExtension = {
   render: ({ trace, element }) => {
     const formContainer = document.createElement('form')
 
-    // Get current date and time
-    let currentDate = new Date()
-    let minDate = new Date()
+    const currentDate = new Date()
+    const minDate = new Date(currentDate)
     minDate.setMonth(currentDate.getMonth() - 1)
-    let maxDate = new Date()
+    const maxDate = new Date(currentDate)
     maxDate.setMonth(currentDate.getMonth() + 2)
 
-    // Convert to ISO string and remove seconds and milliseconds
-    let minDateString = minDate.toISOString().slice(0, 16)
-    let maxDateString = maxDate.toISOString().slice(0, 16)
+    const minDateString = minDate.toISOString().slice(0, 16)
+    const maxDateString = maxDate.toISOString().slice(0, 16)
 
     formContainer.innerHTML = `
           <style>
-            label {
-              font-size: 0.8em;
-              color: #888;
-            }
+            label { font-size: 0.8em; color: #888; }
             input[type="datetime-local"]::-webkit-calendar-picker-indicator {
                 border: none;
                 background: transparent;
@@ -362,9 +345,6 @@ export const DateExtension = {
               margin: 5px 0;
               &:focus{outline:none;}
             }
-            .invalid {
-              border-color: red;
-            }
             .submit {
               background: linear-gradient(to right, #2e6ee1, #2e7ff1 );
               border: none;
@@ -375,9 +355,7 @@ export const DateExtension = {
               cursor: pointer;
               opacity: 0.3;
             }
-            .submit:enabled {
-              opacity: 1; /* Make the button fully opaque when it's enabled */
-            }
+            .submit:enabled { opacity: 1; }
           </style>
           <label for="date">Select your date/time</label><br>
           <div class="meeting"><input type="datetime-local" id="meeting" name="meeting" value="" min="${minDateString}" max="${maxDateString}" /></div><br>
@@ -388,46 +366,26 @@ export const DateExtension = {
     const datetimeInput = formContainer.querySelector('#meeting')
 
     datetimeInput.addEventListener('input', function () {
-      if (this.value) {
-        submitButton.disabled = false
-      } else {
-        submitButton.disabled = true
-      }
+      submitButton.disabled = !this.value
     })
+
     formContainer.addEventListener('submit', function (event) {
       event.preventDefault()
 
       const datetime = datetimeInput.value
-      console.log(datetime)
-      let [date, time] = datetime.split('T')
+      if (!datetime) return
+
+      const [date, time] = datetime.split('T')
 
       formContainer.querySelector('.submit').remove()
 
       window.voiceflow.chat.interact({
         type: 'complete',
-        payload: { date: date, time: time },
+        payload: { date, time },
       })
     })
+
     element.appendChild(formContainer)
-  },
-}
-
-export const ConfettiExtension = {
-  name: 'Confetti',
-  type: 'effect',
-  match: ({ trace }) =>
-    trace.type === 'ext_confetti' || trace.payload.name === 'ext_confetti',
-  effect: ({ trace }) => {
-    const canvas = document.querySelector('#confetti-canvas')
-
-    var myConfetti = confetti.create(canvas, {
-      resize: true,
-      useWorker: true,
-    })
-    myConfetti({
-      particleCount: 200,
-      spread: 160,
-    })
   },
 }
 
@@ -446,17 +404,12 @@ export const FeedbackExtension = {
                 align-items: center;
                 justify-content: space-between;
             }
-
             .vfrc-feedback--description {
                 font-size: 0.8em;
                 color: grey;
                 pointer-events: none;
             }
-
-            .vfrc-feedback--buttons {
-                display: flex;
-            }
-
+            .vfrc-feedback--buttons { display: flex; }
             .vfrc-feedback--button {
                 margin: 0;
                 padding: 0;
@@ -465,31 +418,15 @@ export const FeedbackExtension = {
                 background: none;
                 opacity: 0.2;
             }
-
-            .vfrc-feedback--button:hover {
-              opacity: 0.5; /* opacity on hover */
-            }
-
-            .vfrc-feedback--button.selected {
-              opacity: 0.6;
-            }
-
-            .vfrc-feedback--button.disabled {
-                pointer-events: none;
-            }
-
+            .vfrc-feedback--button:hover { opacity: 0.5; }
+            .vfrc-feedback--button.selected { opacity: 0.6; }
+            .vfrc-feedback--button.disabled { pointer-events: none; }
             .vfrc-feedback--button:first-child svg {
-                fill: none; /* color for thumb up */
-                stroke: none;
-                border: none;
-                margin-left: 6px;
+                fill: none; stroke: none; border: none; margin-left: 6px;
             }
-
             .vfrc-feedback--button:last-child svg {
                 margin-left: 4px;
-                fill: none; /* color for thumb down */
-                stroke: none;
-                border: none;
+                fill: none; stroke: none; border: none;
                 transform: rotate(180deg);
             }
           </style>
@@ -502,26 +439,20 @@ export const FeedbackExtension = {
           </div>
         `
 
-    feedbackContainer
-      .querySelectorAll('.vfrc-feedback--button')
-      .forEach((button) => {
-        button.addEventListener('click', function (event) {
-          const feedback = this.getAttribute('data-feedback')
-          window.voiceflow.chat.interact({
-            type: 'complete',
-            payload: { feedback: feedback },
-          })
+    feedbackContainer.querySelectorAll('.vfrc-feedback--button').forEach((button) => {
+      button.addEventListener('click', function () {
+        const feedback = this.getAttribute('data-feedback')
+        window.voiceflow.chat.interact({
+          type: 'complete',
+          payload: { feedback },
+        })
 
-          feedbackContainer
-            .querySelectorAll('.vfrc-feedback--button')
-            .forEach((btn) => {
-              btn.classList.add('disabled')
-              if (btn === this) {
-                btn.classList.add('selected')
-              }
-            })
+        feedbackContainer.querySelectorAll('.vfrc-feedback--button').forEach((btn) => {
+          btn.classList.add('disabled')
+          if (btn === this) btn.classList.add('selected')
         })
       })
+    })
 
     element.appendChild(feedbackContainer)
   },
