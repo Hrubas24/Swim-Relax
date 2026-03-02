@@ -192,14 +192,12 @@ export const FileUploadExtension = {
           fileUploadContainer.innerHTML =
             '<img src="https://s3.amazonaws.com/com.voiceflow.studio/share/check/check.gif" alt="Done" width="50" height="50">'
 
-          const rawUrl = result?.data?.url
-          if (!rawUrl) throw new Error("Missing result.data.url")
-
-          const dlUrl = rawUrl.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/")
+          const url = result?.data?.url
+          if (!url) throw new Error("Missing result.data.url")
 
           window.voiceflow.chat.interact({
             type: "complete",
-            payload: { file: dlUrl },
+            payload: { file: url },
           })
         })
         .catch((error) => {
